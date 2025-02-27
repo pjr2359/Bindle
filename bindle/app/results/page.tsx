@@ -10,76 +10,92 @@ export default function ResultsPage() {
   const [results, setResults] = useState<RouteCardProps[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // For demo, we'll use mock data
   useEffect(() => {
-    // In a real app, you would fetch results from your API based on search params
-    console.log("Search params:", Object.fromEntries(searchParams.entries()));
+    const fetchRoutes = async () => {
+      setLoading(true);
 
-    // Simulate API call with timeout
-    setTimeout(() => {
-      setResults([
-        {
-          id: 1,
-          price: 287,
-          duration: 1080, // 18 hours in minutes
-          segments: [
+      try {
+        // Check if we have location IDs
+        const originId = searchParams.get('originId');
+        const destinationId = searchParams.get('destinationId');
+        const departureDate = searchParams.get('departureDate');
+
+        if (originId && destinationId && departureDate) {
+          // Build query params
+          const queryParams = new URLSearchParams(searchParams);
+
+          // Call your API
+          const response = await fetch(`/api/search?${queryParams.toString()}`);
+          const data = await response.json();
+
+          if (data.routes) {
+            setResults(data.routes.map(journey => ({
+              id: journey.id,
+              price: journey.totalPrice,
+              duration: journey.totalDuration,
+              segments: journey.segments.map(segment => ({
+                type: segment.type,
+                origin: segment.origin.name,
+                destination: segment.destination.name,
+                departureTime: segment.departureTime,
+                arrivalTime: segment.arrivalTime,
+                provider: segment.provider,
+                price: segment.price
+              }))
+            })));
+          }
+        } else {
+          // Fallback to mock data
+          setResults([
             {
-              type: 'bus',
-              origin: 'Ithaca Bus Terminal',
-              destination: 'New York Port Authority',
-              departureTime: '2025-03-15T06:00:00',
-              arrivalTime: '2025-03-15T10:30:00',
-              provider: 'Greyhound',
-              price: 45
-            },
-            {
-              type: 'flight',
-              origin: 'JFK Airport',
-              destination: 'Warsaw Chopin Airport',
-              departureTime: '2025-03-15T19:30:00',
-              arrivalTime: '2025-03-16T10:45:00',
-              provider: 'LOT Polish Airlines',
-              price: 199
-            },
-            {
-              type: 'train',
-              origin: 'Warsaw Central Station',
-              destination: 'Athens Central Railway Station',
-              departureTime: '2025-03-16T14:00:00',
-              arrivalTime: '2025-03-17T00:00:00',
-              provider: 'Eurail',
-              price: 43
+              id: 1,
+              price: 287,
+              duration: 1080, // 18 hours in minutes
+              segments: [
+                {
+                  type: 'bus',
+                  origin: 'Ithaca Bus Terminal',
+                  destination: 'New York Port Authority',
+                  departureTime: '2025-03-15T06:00:00',
+                  arrivalTime: '2025-03-15T10:30:00',
+                  provider: 'Greyhound',
+                  price: 85
+                }
+                // Include the rest of your mock data here
+              ]
             }
-          ]
-        },
-        {
-          id: 2,
-          price: 345,
-          duration: 840, // 14 hours in minutes
-          segments: [
-            {
-              type: 'flight',
-              origin: 'Ithaca Tompkins Regional Airport',
-              destination: 'Frankfurt Airport',
-              departureTime: '2025-03-15T10:15:00',
-              arrivalTime: '2025-03-16T01:30:00',
-              provider: 'Lufthansa',
-              price: 299
-            },
-            {
-              type: 'flight',
-              origin: 'Frankfurt Airport',
-              destination: 'Athens International Airport',
-              departureTime: '2025-03-16T06:45:00',
-              arrivalTime: '2025-03-16T10:15:00',
-              provider: 'Aegean Airlines',
-              price: 46
-            }
-          ]
+            // Include any other mock routes here
+          ]);
         }
-      ]);
-      setLoading(false);
-    }, 1000);
+      } catch (error) {
+        console.error('Error fetching routes:', error);
+        // Fallback to mock data if API call fails
+        setResults([
+          {
+            id: 1,
+            price: 287,
+            duration: 1080,
+            segments: [
+              {
+                type: 'bus',
+                origin: 'Ithaca Bus Terminal',
+                destination: 'New York Port Authority',
+                departureTime: '2025-03-15T06:00:00',
+                arrivalTime: '2025-03-15T10:30:00',
+                provider: 'Greyhound',
+                price: 85
+              }
+              // Include the rest of your mock data here
+            ]
+          }
+          // Include any other mock routes here
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRoutes();
   }, [searchParams]);
 
   const origin = searchParams.get('origin') || '';

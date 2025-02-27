@@ -2,7 +2,7 @@ import { Location } from '@/types/location';
 import { TransportSegment } from '@/types/segment';
 
 // Use a free flight API like AviationStack or a mock for development
-const AVIATION_API_KEY = process.env.AVIATION_API_KEY || 'your_test_key';
+const AVIATION_API_KEY = process.env.AVIATION_API_KEY;
 
 export async function searchFlights(
   origin: Location,
