@@ -1,39 +1,34 @@
 import React from 'react';
-import Link from 'next/link';
-import { Map } from 'lucide-react';
+import SearchForm from '@/components/search/SearchForm';
 
-const Header = () => {
+export default function Home() {
   return (
-    <header className="bg-white shadow py-4">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-2">
-            <Map className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold text-blue-600">Bindle</span>
-          </Link>
-          <nav>
-            <ul className="flex space-x-6">
-              <li>
-                <Link href="/" className="text-gray-700 hover:text-blue-600">
-                  Search
-                </Link>
-              </li>
-              <li>
-                <Link href="/trips" className="text-gray-700 hover:text-blue-600">
-                  My Trips
-                </Link>
-              </li>
-              <li>
-                <Link href="/account" className="text-gray-700 hover:text-blue-600">
-                  Account
-                </Link>
-              </li>
-            </ul>
-          </nav>
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-800 mb-4">Find the absolute cheapest way to travel</h1>
+          <p className="text-lg text-gray-600">Combine flights, trains, buses and more to save money</p>
         </div>
-      </div>
-    </header>
-  );
-};
 
-export default Header;
+        <SearchForm />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
+            <h3 className="font-bold text-lg mb-2">Multi-modal Journeys</h3>
+            <p className="text-gray-600">We combine trains, buses, flights and more to find the absolute cheapest route.</p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
+            <h3 className="font-bold text-lg mb-2">Budget Focused</h3>
+            <p className="text-gray-600">Bindle specializes in finding unconventional but super affordable travel options.</p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
+            <h3 className="font-bold text-lg mb-2">Trip Planning</h3>
+            <p className="text-gray-600">Plan complex multi-destination trips with our advanced planning features.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

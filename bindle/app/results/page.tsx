@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import RouteCard, { RouteCardProps } from '@/components/results/RouteCard';
+import RouteCard, { RouteCardProps } from '@/app/results/RouteCard';
 
 export default function ResultsPage() {
   const searchParams = useSearchParams();
