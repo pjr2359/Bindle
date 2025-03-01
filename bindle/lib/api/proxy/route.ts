@@ -1,14 +1,15 @@
+// Updated proxy/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const url = searchParams.get('url');
-    const apiKey = process.env.SKYSCANNER_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_SKYSCANNER_API_KEY;
 
-    if (!url) {
+    if (!url || !url.startsWith('https://skyscanner89.p.rapidapi.com/')) {
       return NextResponse.json(
-        { error: 'Missing URL parameter' },
+        { error: 'Invalid URL parameter' },
         { status: 400 }
       );
     }

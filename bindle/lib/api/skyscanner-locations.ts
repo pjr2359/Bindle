@@ -110,7 +110,7 @@ function transformSkyscannerLocations(data: SkyscannerAutoCompleteResponse): Loc
     } : undefined;
 
     // Generate a unique ID
-    const id = place.relevantFlightParams?.skyId.toLowerCase() ||
+    const id = place.relevantFlightParams?.skyId?.toLowerCase() ||
       (place.iata ? place.iata.toLowerCase() :
         place.entityId.toLowerCase());
 
