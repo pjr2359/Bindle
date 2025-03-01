@@ -63,13 +63,23 @@ export async function searchFlights(
     url.searchParams.append('market', 'US');
 
     // Make API request
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-RapidAPI-Host': SKYSCANNER_API_HOST,
-        'X-RapidAPI-Key': SKYSCANNER_API_KEY,
-      }
-    });
+
+    let response;
+    if (typeof window !== 'undefined') {
+      // Client-side: use the proxy to avoid CORS
+      const baseUrl = window.location.origin;
+      const proxyUrl = `${baseUrl}/api/proxy?url=${encodeURIComponent(url.toString())}`;
+      response = await fetch(proxyUrl);
+    } else {
+      // Server-side: make the request directly
+      response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'X-RapidAPI-Host': SKYSCANNER_API_HOST,
+          'X-RapidAPI-Key': SKYSCANNER_API_KEY,
+        }
+      });
+    }
 
     if (!response.ok) {
       throw new Error(`Skyscanner API request failed: ${response.status} ${response.statusText}`);

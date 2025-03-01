@@ -25,6 +25,13 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
 /**
  * Handle API errors consistently
  */
-export function handleApiError(error: any, service: string): void {
+export function handleApiError<T>(error: any, service: string, fallbackFn?: () => Promise<T>): Promise<T> {
   console.error(`Error in ${service} API:`, error);
+
+  if (fallbackFn) {
+    console.log(`Using fallback for ${service}`);
+    return fallbackFn();
+  }
+
+  return Promise.resolve([] as unknown as T);
 }
