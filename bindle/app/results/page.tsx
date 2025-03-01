@@ -10,91 +10,61 @@ export default function ResultsPage() {
   const [results, setResults] = useState<RouteCardProps[]>([]);
   const [loading, setLoading] = useState(true);
 
+  interface Journey {
+    id: number;
+    totalPrice: number;
+    totalDuration: number;
+    segments: {
+      type: "flight" | "train" | "bus";
+      origin: { name: string };
+      destination: { name: string };
+      departureTime: string;
+      arrivalTime: string;
+      provider: string;
+      price: number;
+    }[];
+  }
+  
   useEffect(() => {
     const fetchRoutes = async () => {
       setLoading(true);
-
+  
       try {
-        // Check if we have location IDs
         const originId = searchParams.get('originId');
         const destinationId = searchParams.get('destinationId');
         const departureDate = searchParams.get('departureDate');
-
+  
         if (originId && destinationId && departureDate) {
-          // Build query params
-          const queryParams = new URLSearchParams(searchParams);
-
-          // Call your API
+          const queryParams = new URLSearchParams(searchParams.toString());
           const response = await fetch(`/api/search?${queryParams.toString()}`);
-          const data = await response.json();
-
+          const data: { routes: Journey[] } = await response.json(); // ✅ Explicitly typing the API response
+  
           if (data.routes) {
-            setResults(data.routes.map(journey => ({
-              id: journey.id,
-              price: journey.totalPrice,
-              duration: journey.totalDuration,
-              segments: journey.segments.map(segment => ({
-                type: segment.type,
-                origin: segment.origin.name,
-                destination: segment.destination.name,
-                departureTime: segment.departureTime,
-                arrivalTime: segment.arrivalTime,
-                provider: segment.provider,
-                price: segment.price
+            setResults(
+              data.routes.map((journey: Journey) => ({
+                id: journey.id,
+                price: journey.totalPrice,
+                duration: journey.totalDuration,
+                segments: journey.segments.map(segment => ({
+                  type: segment.type as "flight" | "train" | "bus",
+                  origin: segment.origin.name,
+                  destination: segment.destination.name,
+                  departureTime: segment.departureTime,
+                  arrivalTime: segment.arrivalTime,
+                  provider: segment.provider,
+                  price: segment.price,
+                })),
               }))
-            })));
+            );
           }
-        } else {
-          // Fallback to mock data
-          setResults([
-            {
-              id: 1,
-              price: 287,
-              duration: 1080, // 18 hours in minutes
-              segments: [
-                {
-                  type: 'bus',
-                  origin: 'Ithaca Bus Terminal',
-                  destination: 'New York Port Authority',
-                  departureTime: '2025-03-15T06:00:00',
-                  arrivalTime: '2025-03-15T10:30:00',
-                  provider: 'Greyhound',
-                  price: 85
-                }
-                // Include the rest of your mock data here
-              ]
-            }
-            // Include any other mock routes here
-          ]);
         }
       } catch (error) {
         console.error('Error fetching routes:', error);
-        // Fallback to mock data if API call fails
-        setResults([
-          {
-            id: 1,
-            price: 287,
-            duration: 1080,
-            segments: [
-              {
-                type: 'bus',
-                origin: 'Ithaca Bus Terminal',
-                destination: 'New York Port Authority',
-                departureTime: '2025-03-15T06:00:00',
-                arrivalTime: '2025-03-15T10:30:00',
-                provider: 'Greyhound',
-                price: 85
-              }
-              // Include the rest of your mock data here
-            ]
-          }
-          // Include any other mock routes here
-        ]);
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchRoutes();
   }, [searchParams]);
 
