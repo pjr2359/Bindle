@@ -20,7 +20,7 @@ const SearchForm = () => {
   const [originLocation, setOriginLocation] = useState<Location | null>(null);
   const [destinationLocation, setDestinationLocation] = useState<Location | null>(null);
 
-  const handleChange = (e) => {
+  const handleChange = (e:any) => {
     const { name, value } = e.target;
     setSearchParams(prev => ({ ...prev, [name]: value }));
   };
@@ -37,7 +37,7 @@ const SearchForm = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e:any) => {
     e.preventDefault();
 
     // Build the query parameters including location IDs if available
