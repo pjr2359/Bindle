@@ -78,15 +78,15 @@ const LocationInput: React.FC<LocationInputProps> = ({
 
   return (
     <div className="relative">
-      <label className="block text-gray-700 mb-2">{label}</label>
+      <label className="block text-gray-900 mb-2">{label}</label>
       <div className="flex items-center border border-gray-300 rounded-lg px-4 py-3">
-        <Search className="h-5 w-5 text-gray-400 mr-2" />
+        <Search className="h-5 w-5 text-gray-800 mr-2" />
         <input
           ref={inputRef}
           type="text"
           name={name}
           placeholder={placeholder}
-          className="w-full focus:outline-none"
+          className="w-full focus:outline-none text-gray-900"
           value={query}
           onChange={handleInputChange}
           onFocus={() => setIsOpen(true)}
@@ -106,8 +106,8 @@ const LocationInput: React.FC<LocationInputProps> = ({
             >
               <span className="mr-2">{getLocationTypeIcon(location.type)}</span>
               <div>
-                <div className="font-medium">{location.name}</div>
-                <div className="text-xs text-gray-500">{location.type.replace('_', ' ')}</div>
+                <div className="font-medium text-gray-900">{location.name}</div>
+                <div className="text-xs text-gray-900">{location.type.replace('_', ' ').replace(/\b\w/g, char => char.toUpperCase())}</div>
               </div>
             </div>
           ))}
