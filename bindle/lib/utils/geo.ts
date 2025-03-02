@@ -1,6 +1,6 @@
 // lib/utils/geo.ts
 import { Location } from '@/types/location';
-import { searchSkyscannerLocations } from '@/lib/api/skyscanner-locations';
+import { searchSkyscannerLocations } from '@/lib/api/services/skyscanner-locations';
 import { cachedApiRequest } from '@/lib/api/cache';
 
 // For fallback, we'll keep our mock location database
