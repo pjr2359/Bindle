@@ -1,7 +1,7 @@
 import { Location } from '@/types/location';
 import { TransportSegment } from '@/types/segment';
 import { formatApiDate, handleApiError, calculateDistance } from './utils';
-
+import { searchFlightsWithAI } from '../ai/deepseek-flights';
 // Skyscanner API credentials
 const SKYSCANNER_API_KEY = process.env.NEXT_PUBLIC_SKYSCANNER_API_KEY || '7341b7eb14msh5966cd74fcd04d9p1b6d94jsn225947f874b8';
 const SKYSCANNER_API_HOST = 'skyscanner89.p.rapidapi.com';
@@ -38,6 +38,11 @@ export async function searchFlights(
   date: string
 ): Promise<TransportSegment[]> {
   try {
+
+
+    if (!SKYSCANNER_API_KEY || process.env.USE_AI_FALLBACK === 'true') {
+      return searchFlightsWithAI(origin, destination, date);
+    }
     // Get location codes
     const originCodes = await getLocationCode(origin);
     const destinationCodes = await getLocationCode(destination);
@@ -93,6 +98,8 @@ export async function searchFlights(
     handleApiError(error, 'Skyscanner');
 
     // Fallback to mock data
+    console.log('API search failed, trying AI method...');
+    return searchFlightsWithAI(origin, destination, date);
     return getMockFlightData(origin, destination, date);
   }
 }
