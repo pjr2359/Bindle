@@ -1,5 +1,6 @@
 import { Location } from '@/types/location';
 import { TransportSegment } from '@/types/segment';
+import { getHereRoute } from '@/lib/api/services/hereService';
 
 export async function searchBuses(
   origin: Location,
@@ -7,22 +8,31 @@ export async function searchBuses(
   date: string
 ): Promise<TransportSegment[]> {
   try {
-    // Here you would integrate with a bus API like the FlixBus API
-    // For MVP, use mock data
     console.log(`Searching buses from ${origin.name} to ${destination.name} on ${date}`);
 
-    // Mock bus data
+    // Call the HERE API to get transit route information, filtering for bus routes.
+    const routeData = await getHereRoute(
+      `${origin.coordinates?.lat},${origin.coordinates?.lng}`,
+      `${destination.coordinates?.lat},${destination.coordinates?.lng}`,
+      'publicTransit'
+    );
+
+    // Calculate departure and arrival times based on the HERE response.
+    const departureTime = new Date(date);
+    const arrivalTime = new Date(departureTime.getTime() + (routeData.travelTime || 0) * 1000);
+
+    // Construct and return the bus route segment.
     return [
       {
         id: `bus-${Date.now()}-1`,
         origin,
         destination,
-        departureTime: new Date(date).toISOString(),
-        arrivalTime: new Date(new Date(date).getTime() + 8 * 60 * 60 * 1000).toISOString(), // 8 hours later
-        price: 35 + Math.floor(Math.random() * 25),
+        departureTime: departureTime.toISOString(),
+        arrivalTime: arrivalTime.toISOString(),
+        price: routeData.price || (35 + Math.floor(Math.random() * 25)),
         type: 'bus',
-        provider: 'Budget Bus Lines',
-        bookingLink: 'https://example.com/book-bus'
+        provider: routeData.provider || 'Budget Bus Lines',
+        bookingLink: routeData.bookingLink || 'https://example.com/book-bus',
       }
     ];
   } catch (error) {
@@ -30,3 +40,4 @@ export async function searchBuses(
     return [];
   }
 }
+

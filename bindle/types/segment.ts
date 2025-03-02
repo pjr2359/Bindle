@@ -7,7 +7,7 @@ export interface TransportSegment {
   departureTime: string;
   arrivalTime: string;
   price: number;
-  type: 'flight' | 'train' | 'bus';
+  type: 'flight' | 'train' | 'bus' | 'walk';
   provider: string;
   bookingLink: string;
 }

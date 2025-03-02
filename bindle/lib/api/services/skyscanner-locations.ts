@@ -1,10 +1,10 @@
 // lib/api/skyscanner-locations.ts
 import { Location } from '@/types/location';
-import { handleApiError } from './utils';
+import { handleApiError } from '../utils';
 
 // Skyscanner API credentials
 const SKYSCANNER_API_HOST = 'skyscanner89.p.rapidapi.com';
-const SKYSCANNER_API_KEY = process.env.SKYSCANNER_API_KEY || '7341b7eb14msh5966cd74fcd04d9p1b6d94jsn225947f874b8';
+const SKYSCANNER_API_KEY = process.env.SKYSCANNER_API_KEY;
 
 // Types for Skyscanner auto-complete API response
 interface SkyscannerLocation {
@@ -59,6 +59,10 @@ export async function searchSkyscannerLocations(query: string): Promise<Location
     console.log(`Searching Skyscanner locations for: ${query}`);
 
     // Make the API request
+    if (!SKYSCANNER_API_KEY) {
+      throw new Error('Skyscanner API key is not defined');
+    }
+
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {

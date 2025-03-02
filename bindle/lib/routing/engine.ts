@@ -6,6 +6,7 @@ import { searchTrains } from '@/lib/api/trains';
 import { searchBuses } from '@/lib/api/buses';
 import { buildRoutingGraph, calculateTransferTime } from './graph';
 import { findNearbyTransportLocations, getLocationById } from '@/lib/utils/geo';
+import { searchWalks } from '../api/walking';
 
 // Find all possible routes between origin and destination
 export async function findRoutes(
@@ -34,6 +35,12 @@ export async function findRoutes(
   // Step 3: Search for all direct segments between all possible origins and destinations
   const directSegments: TransportSegment[] = [];
 
+  // Step 3a: Only get a walking route for the main origin and destination
+  // This ensures we only have one walking option total
+  const walks = await searchWalks(originLocation, destinationLocation, departureDate);
+  directSegments.push(...walks);
+
+  // Step 3b: Get other transport options for all possible combinations
   // This would be parallelized in a production app
   for (const origin of originTransportLocations) {
     for (const destination of destinationTransportLocations) {
@@ -54,7 +61,7 @@ export async function findRoutes(
     }
   }
 
-  // Step 4: Build multi-modal routes (simplified for MVP)
+  // Step 4: Build multi-modal routes
   const journeys: Journey[] = [];
 
   // First, add all direct routes

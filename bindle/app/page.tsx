@@ -14,17 +14,17 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
-            <h3 className="font-bold text-lg mb-2">Multi-modal Journeys</h3>
+            <h3 className="font-bold text-lg mb-2 text-gray-900">Multi-modal Journeys</h3>
             <p className="text-gray-600">We combine trains, buses, flights and more to find the absolute cheapest route.</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
-            <h3 className="font-bold text-lg mb-2">Budget Focused</h3>
+            <h3 className="font-bold text-lg mb-2 text-gray-900">Budget Focused</h3>
             <p className="text-gray-600">Bindle specializes in finding unconventional but super affordable travel options.</p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-600">
-            <h3 className="font-bold text-lg mb-2">Trip Planning</h3>
+            <h3 className="font-bold text-lg mb-2 text-gray-900">Trip Planning</h3>
             <p className="text-gray-600">Plan complex multi-destination trips with our advanced planning features.</p>
           </div>
         </div>
