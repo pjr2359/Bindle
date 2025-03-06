@@ -1,110 +1,153 @@
+// lib/api/flights.ts
 import { Location } from '@/types/location';
 import { TransportSegment } from '@/types/segment';
 import { formatApiDate, handleApiError, calculateDistance } from './utils';
-import { searchFlightsWithAI } from '../ai/deepseek-flights';
-// Skyscanner API credentials
-const SKYSCANNER_API_KEY = process.env.NEXT_PUBLIC_SKYSCANNER_API_KEY || '7341b7eb14msh5966cd74fcd04d9p1b6d94jsn225947f874b8';
+import { cachedApiRequest } from './cache';
+import { withRateLimit } from './rateLimiter';
+
+// Move API key to server-side environment variables only
 const SKYSCANNER_API_HOST = 'skyscanner89.p.rapidapi.com';
+
+// Cache location codes to avoid redundant lookups
+const locationCodeCache = new Map<string, { skyId: string, entityId: string }>();
+
+// Common city to code mapping
+const cityToCode: Record<string, { skyId: string, entityId: string }> = {
+  'new york': { skyId: 'NYC', entityId: '27537542' },
+  'jfk': { skyId: 'JFK', entityId: '95673298' },
+  'boston': { skyId: 'BOS', entityId: '27538629' },
+  'chicago': { skyId: 'CHI', entityId: '27535663' },
+  'san francisco': { skyId: 'SFO', entityId: '27544026' },
+  'los angeles': { skyId: 'LAX', entityId: '27544850' },
+  'london': { skyId: 'LON', entityId: '27544069' },
+  'paris': { skyId: 'PAR', entityId: '27539733' },
+  'ithaca': { skyId: 'ITH', entityId: '27545475' },
+  'athens': { skyId: 'ATH', entityId: '27539604' }
+};
 
 // Get location codes for Skyscanner API
 async function getLocationCode(location: Location): Promise<{ skyId: string, entityId: string }> {
-  // Simple mapping for common locations
-  const cityToCode: Record<string, { skyId: string, entityId: string }> = {
-    'new york': { skyId: 'NYC', entityId: '27537542' },
-    'jfk': { skyId: 'JFK', entityId: '95673298' },
-    'boston': { skyId: 'BOS', entityId: '27538629' },
-    'chicago': { skyId: 'CHI', entityId: '27535663' },
-    'san francisco': { skyId: 'SFO', entityId: '27544026' },
-    'los angeles': { skyId: 'LAX', entityId: '27544850' },
-    'london': { skyId: 'LON', entityId: '27544069' },
-    'paris': { skyId: 'PAR', entityId: '27539733' },
-    'ithaca': { skyId: 'ITH', entityId: '27545475' },
-    'athens': { skyId: 'ATH', entityId: '27539604' }
-  };
+  // Check cache first
+  if (locationCodeCache.has(location.id)) {
+    return locationCodeCache.get(location.id)!;
+  }
+
+  // Use skyId and entityId if already available on the location object
+  if (location.skyId && location.entityId) {
+    const result = { skyId: location.skyId, entityId: location.entityId };
+    locationCodeCache.set(location.id, result);
+    return result;
+  }
 
   // Try to find by city name
   const cityName = location.name.toLowerCase().split(',')[0];
   if (cityToCode[cityName]) {
+    locationCodeCache.set(location.id, cityToCode[cityName]);
     return cityToCode[cityName];
   }
 
   // Default fallback
-  return { skyId: 'NYC', entityId: '27537542' };
+  const result = { skyId: 'NYC', entityId: '27537542' };
+  locationCodeCache.set(location.id, result);
+  return result;
 }
 
+/**
+ * Search for flights using Skyscanner API with rate limiting and caching
+ */
 export async function searchFlights(
   origin: Location,
   destination: Location,
   date: string
 ): Promise<TransportSegment[]> {
+  // Generate unique cache key for this search
+  const cacheKey = `flight-${origin.id}-${destination.id}-${formatApiDate(date)}`;
+
+  // Use cached request with a longer TTL for flight data (6 hours)
+  return cachedApiRequest(
+    { type: 'flight_search', origin: origin.id, destination: destination.id, date: formatApiDate(date) },
+    () => performFlightSearch(origin, destination, date),
+    6 * 60 * 60 // 6 hours TTL
+  );
+}
+
+/**
+ * Actual flight search implementation with rate limiting
+ */
+async function performFlightSearch(
+  origin: Location,
+  destination: Location,
+  date: string
+): Promise<TransportSegment[]> {
   try {
+    // Skip API call entirely for very short distances that are impractical for flights
+    if (origin.coordinates && destination.coordinates) {
+      const distance = calculateDistance(
+        origin.coordinates.lat,
+        origin.coordinates.lng,
+        destination.coordinates.lat,
+        destination.coordinates.lng
+      );
 
-
-    if (!SKYSCANNER_API_KEY || process.env.USE_AI_FALLBACK === 'true') {
-      return searchFlightsWithAI(origin, destination, date);
+      // If distance is less than 100km, just return empty results - flights not practical
+      if (distance < 100) {
+        console.log(`Distance between ${origin.name} and ${destination.name} is only ${distance}km - skipping flight search`);
+        return [];
+      }
     }
-    // Get location codes
-    const originCodes = await getLocationCode(origin);
-    const destinationCodes = await getLocationCode(destination);
 
-    // Format date for API (YYYY-MM-DD)
-    const formattedDate = formatApiDate(date);
+    // Execute with rate limiting
+    return withRateLimit('skyscanner', async () => {
+      // Get location codes
+      const originCodes = await getLocationCode(origin);
+      const destinationCodes = await getLocationCode(destination);
 
-    console.log(`Searching flights from ${origin.name} to ${destination.name} on ${formattedDate}`);
+      // Format date for API (YYYY-MM-DD)
+      const formattedDate = formatApiDate(date);
 
-    // Build the query URL
-    const url = new URL('https://skyscanner89.p.rapidapi.com/flights/one-way/list');
+      console.log(`Searching flights from ${origin.name} to ${destination.name} on ${formattedDate}`);
 
-    // Add required query parameters
-    url.searchParams.append('origin', originCodes.skyId);
-    url.searchParams.append('originId', originCodes.entityId);
-    url.searchParams.append('destination', destinationCodes.skyId);
-    url.searchParams.append('destinationId', destinationCodes.entityId);
-    url.searchParams.append('date', formattedDate);
-    url.searchParams.append('adults', '1');
-    url.searchParams.append('cabinClass', 'economy');
-    url.searchParams.append('currency', 'USD');
-    url.searchParams.append('locale', 'en-US');
-    url.searchParams.append('market', 'US');
+      // Build the query URL
+      const url = new URL('https://skyscanner89.p.rapidapi.com/flights/one-way/list');
 
-    // Make API request
+      // Add required query parameters
+      url.searchParams.append('origin', originCodes.skyId);
+      url.searchParams.append('originId', originCodes.entityId);
+      url.searchParams.append('destination', destinationCodes.skyId);
+      url.searchParams.append('destinationId', destinationCodes.entityId);
+      url.searchParams.append('date', formattedDate);
+      url.searchParams.append('adults', '1');
+      url.searchParams.append('cabinClass', 'economy');
+      url.searchParams.append('currency', 'USD');
+      url.searchParams.append('locale', 'en-US');
+      url.searchParams.append('market', 'US');
 
-    let response;
-    if (typeof window !== 'undefined') {
-      // Client-side: use the proxy to avoid CORS
-      const baseUrl = window.location.origin;
-      const proxyUrl = `${baseUrl}/api/proxy?url=${encodeURIComponent(url.toString())}`;
-      response = await fetch(proxyUrl);
-    } else {
-      // Server-side: make the request directly
-      response = await fetch(url.toString(), {
-        method: 'GET',
+      // Make API request - server-side only to prevent client-side API key exposure
+      const apiKey = process.env.NEXT_PUBLIC_SKYSCANNER_API_KEY || '';
+
+      // Always use the server-side API proxy approach
+      const response = await fetch('/api/proxy?url=' + encodeURIComponent(url.toString()), {
         headers: {
-          'X-RapidAPI-Host': SKYSCANNER_API_HOST,
-          'X-RapidAPI-Key': SKYSCANNER_API_KEY,
+          'Content-Type': 'application/json',
         }
       });
-    }
 
-    if (!response.ok) {
-      throw new Error(`Skyscanner API request failed: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        throw new Error(`Skyscanner API request failed: ${response.status} ${response.statusText}`);
+      }
 
-    const data = await response.json();
+      const data = await response.json();
 
-    // Transform response to our app's format
-    return transformSkyscannerResults(data, origin, destination);
+      // Transform response to our app's format
+      return transformSkyscannerResults(data, origin, destination);
+    });
   } catch (error) {
-    handleApiError(error, 'Skyscanner');
-
-    // Fallback to mock data
-    console.log('API search failed, trying AI method...');
-    return searchFlightsWithAI(origin, destination, date);
+    console.error('Error searching flights:', error);
     return getMockFlightData(origin, destination, date);
   }
 }
 
-// Transform Skyscanner data to our app's format
+// Transform Skyscanner data to our app's format (implementation unchanged)
 function transformSkyscannerResults(skyscannerData: any, origin: Location, destination: Location): TransportSegment[] {
   const segments: TransportSegment[] = [];
 
@@ -168,6 +211,11 @@ function getMockFlightData(
       destination.coordinates.lat,
       destination.coordinates.lng
     );
+
+    // Skip if very short distance
+    if (distance < 100) {
+      return [];
+    }
 
     // Rough estimation: 500 km/h average speed + 1 hour for boarding/taxiing
     flightHours = Math.max(1, Math.round(distance / 500) + 1);

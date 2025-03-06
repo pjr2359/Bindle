@@ -1,4 +1,5 @@
-import '@/app/styles/globals.css';
+// app/layout.tsx
+import '@/app/globals.css'; // Fix: Only import one CSS file
 import { Inter } from 'next/font/google';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';

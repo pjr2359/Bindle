@@ -78,7 +78,7 @@ export async function searchSkyscannerLocations(query: string): Promise<Location
     const data: SkyscannerAutoCompleteResponse = await response.json();
 
     // Transform Skyscanner location data to our app's format
-    return transformSkyscannerLocations(data);
+    return transformSkyscannerLocations(data, query);
   } catch (error) {
     return handleApiError(error, 'Skyscanner Auto-Complete', async () => {
       // Return mock data as fallback
@@ -90,7 +90,7 @@ export async function searchSkyscannerLocations(query: string): Promise<Location
 /**
  * Transforms Skyscanner location data to our app's format
  */
-function transformSkyscannerLocations(data: SkyscannerAutoCompleteResponse): Location[] {
+function transformSkyscannerLocations(data: SkyscannerAutoCompleteResponse, query: string): Location[] {
   if (!data.places || !Array.isArray(data.places)) {
     return [];
   }
@@ -114,9 +114,7 @@ function transformSkyscannerLocations(data: SkyscannerAutoCompleteResponse): Loc
     } : undefined;
 
     // Generate a unique ID
-    const id = place.relevantFlightParams?.skyId?.toLowerCase() ||
-      (place.iata ? place.iata.toLowerCase() :
-        place.entityId.toLowerCase());
+    const id = query.toLowerCase(); // Add this line to preserve the original query as ID
 
     // Create location name
     let name = place.name;

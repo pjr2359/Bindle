@@ -30,7 +30,7 @@ const LocationInput: React.FC<LocationInputProps> = ({
 
   useEffect(() => {
     const getSuggestions = async () => {
-      if (query.length < 2) {
+      if (query.length < 3) {
         setSuggestions([]);
         return;
       }
