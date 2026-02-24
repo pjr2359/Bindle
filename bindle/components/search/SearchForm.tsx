@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { Calendar, DollarSign, Clock } from "lucide-react";
+import { Calendar, DollarSign, Clock, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import LocationInput from "./LocationInput";
 import { Location } from "@/types/location";
 
 const SearchForm = () => {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchParams, setSearchParams] = useState({
     origin: "",
     destination: "",
@@ -39,6 +40,7 @@ const SearchForm = () => {
 
   const handleSubmit = (e: any) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     const params = new URLSearchParams();
     Object.entries(searchParams).forEach(([key, value]) => {
@@ -143,9 +145,17 @@ const SearchForm = () => {
         <div className="text-center">
           <button
             type="submit"
-            className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-8 rounded-lg transition-colors duration-300"
+            disabled={isSubmitting}
+            className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 px-8 rounded-lg transition-colors duration-150 inline-flex items-center justify-center gap-2 min-w-[200px]"
           >
-            Find Cheapest Routes
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                <span>Searching…</span>
+              </>
+            ) : (
+              "Find Cheapest Routes"
+            )}
           </button>
         </div>
       </form>

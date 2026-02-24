@@ -29,7 +29,8 @@ export async function findRoutes(
   maxPrice?: number,
   maxDuration?: number
 ): Promise<Journey[]> {
-  console.time('routeSearch');
+  const routeSearchLabel = `routeSearch-${Date.now()}`;
+  console.time(routeSearchLabel);
 
   // Step 1: Get location objects
   const originLocation = await getLocationById(originId);
@@ -73,18 +74,23 @@ export async function findRoutes(
 
   console.log(`Selected transport modes for search: ${searchModes.join(', ')}`);
 
-  // Step 3: Find nearby transport locations (but limit the number to avoid explosion of combinations)
-  const MAX_LOCATIONS = 3; // Limit to 3 locations per origin/destination
+  // Step 3: Origin/destination locations for search
+  // City → include city + nearby airports (from API; see findNearbyTransportLocations). Airport → only that airport.
+  const MAX_CITY_AIRPORTS = 6;
 
-  const originTransportLocations = await findNearbyTransportLocations(originLocation.name);
-  const destinationTransportLocations = await findNearbyTransportLocations(destinationLocation.name);
+  const originTransportLocations = [originLocation];
+  if (originLocation.type === 'city') {
+    const nearbyOrigin = await findNearbyTransportLocations(originLocation.name);
+    originTransportLocations.push(...nearbyOrigin);
+  }
+  const limitedOriginLocations = originTransportLocations.slice(0, MAX_CITY_AIRPORTS);
 
-  // Add the main locations to the lists and limit the total number
-  originTransportLocations.unshift(originLocation);
-  destinationTransportLocations.unshift(destinationLocation);
-
-  const limitedOriginLocations = originTransportLocations.slice(0, MAX_LOCATIONS);
-  const limitedDestinationLocations = destinationTransportLocations.slice(0, MAX_LOCATIONS);
+  const destinationTransportLocations = [destinationLocation];
+  if (destinationLocation.type === 'city') {
+    const nearbyDest = await findNearbyTransportLocations(destinationLocation.name);
+    destinationTransportLocations.push(...nearbyDest);
+  }
+  const limitedDestinationLocations = destinationTransportLocations.slice(0, MAX_CITY_AIRPORTS);
 
   console.log(`Using ${limitedOriginLocations.length} origin locations and ${limitedDestinationLocations.length} destination locations`);
 
@@ -102,13 +108,46 @@ export async function findRoutes(
     );
   }
 
-  // For other transport types, search between relevant location pairs
+  // For flights we only care about airport↔airport pairs (city codes like NYC/LON
+  // tend to produce duplicate results for the same underlying flight).
+  const flightOriginLocations =
+    limitedOriginLocations.filter(loc => loc.type === 'airport') || [];
+  const flightDestinationLocations =
+    limitedDestinationLocations.filter(loc => loc.type === 'airport') || [];
+
+  // Collect pairs per mode so we can control concurrency, especially for flights (Amadeus)
+  const flightPairs: [Location, Location][] = [];
+  const trainPairs: [Location, Location][] = [];
+  const busPairs: [Location, Location][] = [];
+
+  // Flights: airport-only pairs
+  if (searchModes.includes('flight')) {
+    for (const origin of flightOriginLocations) {
+      for (const destination of flightDestinationLocations) {
+        if (origin.id === destination.id) continue;
+
+        let pairDistance: number | undefined;
+        if (origin.coordinates && destination.coordinates) {
+          pairDistance = calculateDistance(
+            origin.coordinates.lat,
+            origin.coordinates.lng,
+            destination.coordinates.lat,
+            destination.coordinates.lng
+          );
+        }
+
+        if (!pairDistance || pairDistance > DISTANCE_THRESHOLDS.BUS_MAX) {
+          flightPairs.push([origin, destination]);
+        }
+      }
+    }
+  }
+
+  // Trains / buses: use city + station/airport locations as before
   for (const origin of limitedOriginLocations) {
     for (const destination of limitedDestinationLocations) {
-      // Skip if origin and destination are the same
       if (origin.id === destination.id) continue;
 
-      // Calculate distance between this specific origin-destination pair
       let pairDistance: number | undefined;
       if (origin.coordinates && destination.coordinates) {
         pairDistance = calculateDistance(
@@ -119,39 +158,39 @@ export async function findRoutes(
         );
       }
 
-      // Search flights if appropriate
-      if (searchModes.includes('flight') && (!pairDistance || pairDistance > DISTANCE_THRESHOLDS.BUS_MAX)) {
-        searchPromises.push(
-          searchFlights(origin, destination, departureDate)
-            .then(segments => {
-              directSegments.push(...segments);
-            })
-        );
-      }
-
-      // Search trains if appropriate
       if (searchModes.includes('train') && (!pairDistance || pairDistance <= DISTANCE_THRESHOLDS.TRAIN_MAX)) {
-        searchPromises.push(
-          searchTrains(origin, destination, departureDate)
-            .then(segments => {
-              directSegments.push(...segments);
-            })
-        );
+        trainPairs.push([origin, destination]);
       }
-
-      // Search buses if appropriate
       if (searchModes.includes('bus') && (!pairDistance || pairDistance <= DISTANCE_THRESHOLDS.BUS_MAX)) {
-        searchPromises.push(
-          searchBuses(origin, destination, departureDate)
-            .then(segments => {
-              directSegments.push(...segments);
-            })
-        );
+        busPairs.push([origin, destination]);
       }
     }
   }
 
-  // Wait for all searches to complete
+  // Run flight searches in small batches to stay under Amadeus rate limits
+  const FLIGHT_BATCH_SIZE = 3;
+  for (let i = 0; i < flightPairs.length; i += FLIGHT_BATCH_SIZE) {
+    const batch = flightPairs.slice(i, i + FLIGHT_BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(([o, d]) => searchFlights(o, d, departureDate))
+    );
+    batchResults.forEach(segments => directSegments.push(...segments));
+  }
+
+  // Trains and buses (no shared rate limit with Amadeus) can run in parallel
+  searchPromises.push(
+    ...trainPairs.map(([o, d]) =>
+      searchTrains(o, d, departureDate).then(segments => {
+        directSegments.push(...segments);
+      })
+    ),
+    ...busPairs.map(([o, d]) =>
+      searchBuses(o, d, departureDate).then(segments => {
+        directSegments.push(...segments);
+      })
+    )
+  );
+
   await Promise.all(searchPromises);
   console.log(`Found ${directSegments.length} direct segments`);
 
@@ -237,11 +276,31 @@ export async function findRoutes(
     }
   }
 
-  // Sort journeys by price
-  const sortedJourneys = journeys.sort((a, b) => a.totalPrice - b.totalPrice);
+  // Dedupe: same logical flight (route, price, time, carrier) from multiple OD pairs
+  const seen = new Set<string>();
+  const uniqueJourneys = journeys.filter((j) => {
+    const seg = j.segments[0];
+    const originCode = seg.origin.skyId ?? seg.origin.id ?? '';
+    const destCode = seg.destination.skyId ?? seg.destination.id ?? '';
+    const depNorm = seg.departureTime.slice(0, 16);
+    const arrNorm = seg.arrivalTime.slice(0, 16);
+    const key = `${originCode}-${destCode}-${j.totalPrice}-${Math.round(j.totalDuration)}-${depNorm}-${arrNorm}-${seg.provider}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-  console.timeEnd('routeSearch');
-  console.log(`Found ${sortedJourneys.length} total journeys`);
+  // Sort by price, then by duration (fastest first when same price)
+  const sortedJourneys = uniqueJourneys.sort(
+    (a, b) => a.totalPrice - b.totalPrice || a.totalDuration - b.totalDuration
+  );
 
-  return sortedJourneys;
+  // Cap for display (avoid huge result sets)
+  const MAX_JOURNEYS = 50;
+  const capped = sortedJourneys.slice(0, MAX_JOURNEYS);
+
+  console.timeEnd(routeSearchLabel);
+  console.log(`Found ${sortedJourneys.length} unique journeys (showing ${capped.length})`);
+
+  return capped;
 }

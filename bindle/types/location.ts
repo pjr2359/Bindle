@@ -7,7 +7,7 @@ export interface Location {
     lat: number;
     lng: number;
   };
-  // Skyscanner-specific IDs
+  // IATA code from Amadeus (used for flight search)
   skyId?: string;
   entityId?: string;
   // Rail-specific IDs

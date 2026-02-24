@@ -22,3 +22,11 @@ export const formatDuration = (minutes: number): string => {
   const mins = minutes % 60;
   return `${hours}h ${mins}m`;
 };
+
+/**
+ * Format arrival day offset for flights: +1, +2, +3 or -1
+ */
+export const formatArrivalDayOffset = (offset: number): string => {
+  if (offset > 0) return `+${offset}`;
+  return String(offset);
+};

@@ -69,17 +69,17 @@ class RateLimiter {
   }
 }
 
-// Create rate limiters for different API services
 const rateLimiters: Record<string, RateLimiter> = {
-  skyscanner: new RateLimiter({
-    maxRequests: 5,   // Allow 5 requests
-    timeWindow: 10000, // Per 10 seconds
-    queueTimeout: 60000 // Wait up to 60s in queue
-  }),
   here: new RateLimiter({
-    maxRequests: 10,   // Allow 10 requests
-    timeWindow: 10000, // Per 10 seconds
-  })
+    maxRequests: 10,
+    timeWindow: 10000,
+  }),
+  // Amadeus test: 10 TPS total (token + locations + flight-offers). Use 3/sec so we stay under.
+  amadeus: new RateLimiter({
+    maxRequests: 3,
+    timeWindow: 1000,
+    queueTimeout: 120_000,
+  }),
 };
 
 /**

@@ -8,7 +8,8 @@
 
 interface EnvConfig {
   // API keys
-  SKYSCANNER_API_KEY: string;
+  AMADEUS_CLIENT_ID: string;
+  AMADEUS_CLIENT_SECRET: string;
   HERE_API_KEY: string;
 
   // Database
@@ -25,7 +26,8 @@ interface EnvConfig {
 
 // Default values for development
 const defaults: EnvConfig = {
-  SKYSCANNER_API_KEY: '',
+  AMADEUS_CLIENT_ID: '',
+  AMADEUS_CLIENT_SECRET: '',
   HERE_API_KEY: '',
   DATABASE_URL: '',
   ENABLE_REAL_APIS: false,
@@ -39,9 +41,8 @@ const defaults: EnvConfig = {
  */
 export function getEnv(): EnvConfig {
   return {
-    SKYSCANNER_API_KEY: process.env.NEXT_PUBLIC_SKYSCANNER_API_KEY ||
-      process.env.SKYSCANNER_API_KEY ||
-      defaults.SKYSCANNER_API_KEY,
+    AMADEUS_CLIENT_ID: process.env.AMADEUS_CLIENT_ID || defaults.AMADEUS_CLIENT_ID,
+    AMADEUS_CLIENT_SECRET: process.env.AMADEUS_CLIENT_SECRET || defaults.AMADEUS_CLIENT_SECRET,
 
     HERE_API_KEY: process.env.NEXT_PUBLIC_HERE_API_KEY ||
       process.env.HERE_API_KEY ||
@@ -70,7 +71,7 @@ export function validateEnv(): { valid: boolean; missingVars: string[] } {
   // Also require API keys if real APIs are enabled
   const env = getEnv();
   if (env.ENABLE_REAL_APIS) {
-    requiredVars.push('SKYSCANNER_API_KEY', 'HERE_API_KEY');
+    requiredVars.push('HERE_API_KEY');
   }
 
   const missingVars = requiredVars.filter(varName => !env[varName as keyof EnvConfig]);

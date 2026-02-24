@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
-import { searchLocations } from '@/lib/utils/geo';
 import { Location } from '@/types/location';
 
 interface LocationInputProps {
@@ -13,6 +12,9 @@ interface LocationInputProps {
   onChange: (name: string, value: string, location?: Location) => void;
   required?: boolean;
 }
+
+const DEBOUNCE_MS = 300;
+const MIN_QUERY_LENGTH = 2;
 
 const LocationInput: React.FC<LocationInputProps> = ({
   name,
@@ -25,21 +27,30 @@ const LocationInput: React.FC<LocationInputProps> = ({
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<Location[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const getSuggestions = async () => {
-      if (query.length < 3) {
+    if (query.length < MIN_QUERY_LENGTH) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/locations?q=${encodeURIComponent(query.trim())}`);
+        const data = await res.json();
+        setSuggestions(Array.isArray(data) ? data : []);
+      } catch {
         setSuggestions([]);
-        return;
+      } finally {
+        setLoading(false);
       }
+    }, DEBOUNCE_MS);
 
-      const results = await searchLocations(query);
-      setSuggestions(results);
-    };
-
-    getSuggestions();
+    return () => clearTimeout(timer);
   }, [query]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,21 +107,25 @@ const LocationInput: React.FC<LocationInputProps> = ({
         />
       </div>
 
-      {isOpen && suggestions.length > 0 && (
+      {isOpen && (loading || suggestions.length > 0) && (
         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-          {suggestions.map((location) => (
-            <div
-              key={location.id}
-              className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex items-center"
-              onClick={() => handleSelectSuggestion(location)}
-            >
-              <span className="mr-2">{getLocationTypeIcon(location.type)}</span>
-              <div>
-                <div className="font-medium text-gray-900">{location.name}</div>
-                <div className="text-xs text-gray-900">{location.type.replace('_', ' ').replace(/\b\w/g, char => char.toUpperCase())}</div>
+          {loading ? (
+            <div className="px-4 py-3 text-gray-500 text-sm">Searching…</div>
+          ) : (
+            suggestions.map((location) => (
+              <div
+                key={location.id}
+                className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex items-center"
+                onClick={() => handleSelectSuggestion(location)}
+              >
+                <span className="mr-2">{getLocationTypeIcon(location.type)}</span>
+                <div>
+                  <div className="font-medium text-gray-900">{location.name}</div>
+                  <div className="text-xs text-gray-900">{location.type.replace('_', ' ').replace(/\b\w/g, char => char.toUpperCase())}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
     </div>

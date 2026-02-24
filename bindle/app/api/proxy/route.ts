@@ -5,7 +5,6 @@ import { cachedApiRequest } from '@/lib/api/cache';
 
 // Allowed domains for proxying - strictly control which external APIs can be accessed
 const ALLOWED_DOMAINS = [
-  'skyscanner89.p.rapidapi.com',
   'router.hereapi.com'
 ];
 
@@ -26,10 +25,7 @@ function isAllowedUrl(urlString: string): boolean {
  */
 function getServiceForUrl(urlString: string): string {
   const url = new URL(urlString);
-
-  if (url.hostname.includes('skyscanner')) return 'skyscanner';
   if (url.hostname.includes('here')) return 'here';
-
   return 'default';
 }
 
@@ -55,20 +51,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get appropriate API key based on the service
-    let headers: Record<string, string> = {};
-
-    if (url.includes('skyscanner')) {
-      const apiKey = process.env.SKYSCANNER_API_KEY || '';
-      headers = {
-        'X-RapidAPI-Host': 'skyscanner89.p.rapidapi.com',
-        'X-RapidAPI-Key': apiKey
-      };
-    } else if (url.includes('hereapi')) {
-      // HERE API uses query params for authentication, no headers needed
-    } else {
-      // Default headers
-    }
+    const headers: Record<string, string> = {};
+    // HERE API uses query params for authentication; no extra headers needed
 
     // Determine which API service this URL is for
     const service = getServiceForUrl(url);

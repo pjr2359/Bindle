@@ -1,41 +1,39 @@
 import { searchFlights } from '@/lib/api/flights';
 import { Location } from '@/types/location';
 import * as cache from '@/lib/api/cache';
+import * as amadeusClient from '@/lib/api/services/amadeusClient';
 
-// Mock the cache module
 jest.mock('@/lib/api/cache', () => ({
   cachedApiRequest: jest.fn((params, fetchFn) => fetchFn()),
 }));
 
-// Mock global fetch
-global.fetch = jest.fn(() =>
-  Promise.resolve({
-    ok: true,
-    json: () => Promise.resolve({
-      content: {
-        results: {
-          itineraries: {
-            item1: {
-              legs: [
-                {
-                  departure: '2025-06-01T08:00:00',
-                  arrival: '2025-06-01T10:30:00',
-                  carriers: [{ name: 'Test Airlines' }]
-                }
-              ],
-              pricingOptions: [
-                {
-                  price: { amount: 199.99 },
-                  items: [{ deepLink: 'https://example.com' }]
-                }
-              ]
-            }
-          }
-        }
-      }
-    }),
-  })
-) as jest.Mock;
+jest.mock('@/lib/api/services/amadeusClient', () => ({
+  ...jest.requireActual('@/lib/api/services/amadeusClient'),
+  searchFlightOffers: jest.fn(),
+}));
+
+const mockSearchFlightOffers = amadeusClient.searchFlightOffers as jest.Mock;
+
+// Amadeus Flight Offers response shape
+const mockAmadeusResponse = () => ({
+  data: [
+    {
+      id: 'offer-1',
+      itineraries: [
+        {
+          segments: [
+            {
+              departure: { at: '2025-06-01T08:00:00' },
+              arrival: { at: '2025-06-01T10:30:00' },
+              carrierCode: 'TA',
+            },
+          ],
+        },
+      ],
+      price: { grandTotal: '199.99' },
+    },
+  ],
+});
 
 describe('Flight API', () => {
   const origin: Location = {
@@ -44,7 +42,6 @@ describe('Flight API', () => {
     type: 'city',
     coordinates: { lat: 40.7128, lng: -74.0060 },
     skyId: 'NYC',
-    entityId: '27537542'
   };
 
   const destination: Location = {
@@ -53,43 +50,42 @@ describe('Flight API', () => {
     type: 'city',
     coordinates: { lat: 34.0522, lng: -118.2437 },
     skyId: 'LAX',
-    entityId: '27544850'
   };
 
   const date = '2025-06-01';
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.AMADEUS_CLIENT_ID = 'test-id';
+    process.env.AMADEUS_CLIENT_SECRET = 'test-secret';
+    mockSearchFlightOffers.mockResolvedValue(mockAmadeusResponse());
   });
 
-  it('should return flight segments when API call succeeds', async () => {
+  it('should return flight segments when Amadeus returns offers', async () => {
     const segments = await searchFlights(origin, destination, date);
 
-    expect(segments).toHaveLength(1);
-    expect(segments[0].type).toBe('flight');
-    expect(segments[0].price).toBe(199.99);
-    expect(segments[0].provider).toBe('Test Airlines');
-  });
-
-  it('should fall back to mock data when API call fails', async () => {
-    // Make fetch fail
-    (global.fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.reject(new Error('API unavailable'))
-    );
-
-    const segments = await searchFlights(origin, destination, date);
-
-    // Should return mock data
     expect(segments.length).toBeGreaterThan(0);
     expect(segments[0].type).toBe('flight');
+    expect(segments[0].price).toBe(199.99);
+    expect(segments[0].provider).toBe('TA');
+    expect(mockSearchFlightOffers).toHaveBeenCalled();
   });
 
-  it('should skip API call for very short distances', async () => {
+  it('should return no segments when Amadeus fails', async () => {
+    mockSearchFlightOffers.mockRejectedValueOnce(new Error('API unavailable'));
+
+    const segments = await searchFlights(origin, destination, date);
+
+    expect(segments).toHaveLength(0);
+  });
+
+  it('should skip flight search for very short distances', async () => {
     const closeOrigin: Location = {
       id: 'jfk',
       name: 'JFK Airport',
       type: 'airport',
       coordinates: { lat: 40.6413, lng: -73.7781 },
+      skyId: 'JFK',
     };
 
     const closeDestination: Location = {
@@ -97,11 +93,12 @@ describe('Flight API', () => {
       name: 'LaGuardia Airport',
       type: 'airport',
       coordinates: { lat: 40.7769, lng: -73.8740 },
+      skyId: 'LGA',
     };
 
     const segments = await searchFlights(closeOrigin, closeDestination, date);
 
     expect(segments).toHaveLength(0);
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockSearchFlightOffers).not.toHaveBeenCalled();
   });
 });

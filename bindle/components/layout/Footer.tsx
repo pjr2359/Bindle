@@ -26,7 +26,7 @@ const Footer = () => {
             </ul>
           </div>
         </div>
-        <div className="border-t border-gray-200 pt-6 text-center text-gray-600">
+        <div className="border-t border-gray-200 pt-6 flex flex-col items-center gap-3 text-gray-600">
           <p>© 2025 Bindle - The Budget Travel Planner</p>
         </div>
       </div>
